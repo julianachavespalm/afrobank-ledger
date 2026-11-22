@@ -1,78 +1,55 @@
 package tech.afrobank.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import tech.afrobank.entity.ContaCorrente;
-import tech.afrobank.repository.ContaCorrenteRepository;
+import tech.afrobank.dto.*;
+import tech.afrobank.service.ContaCorrenteService;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/contas-corrente")
+@RequestMapping("/api/v1/contas-corrente")
+@RequiredArgsConstructor
 public class ContaCorrenteController {
 
-    @Autowired
-    private ContaCorrenteRepository contaCorrenteRepository;
+    private final ContaCorrenteService contaCorrenteService;
 
-    // Endpoint para obter todas as contas corrente
-    @GetMapping("/")
-    public List<ContaCorrente> getAllContasCorrente() {
-        return contaCorrenteRepository.findAll();
+    @GetMapping
+    public ResponseEntity<List<ContaCorrenteResponseDTO>> listarTodas() {
+        return ResponseEntity.ok(contaCorrenteService.listarTodas());
     }
 
-    // Endpoint para obter uma conta corrente por ID
     @GetMapping("/{id}")
-    public ResponseEntity<ContaCorrente> getContaCorrenteById(@PathVariable Long id) {
-        ContaCorrente contaCorrente = contaCorrenteRepository.findById(id)
-                .orElse(null);
-
-        if (contaCorrente != null) {
-            return ResponseEntity.ok(contaCorrente);
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<ContaCorrenteResponseDTO> buscarPorId(@PathVariable Long id) {
+        return ResponseEntity.ok(contaCorrenteService.buscarPorId(id));
     }
 
-    // Endpoint para criar uma nova conta corrente
-    @PostMapping("/")
-    public ResponseEntity<ContaCorrente> createContaCorrente(@RequestBody ContaCorrente contaCorrente) {
-        ContaCorrente novaContaCorrente = contaCorrenteRepository.save(contaCorrente);
-        return ResponseEntity.status(HttpStatus.CREATED).body(novaContaCorrente);
+    @PostMapping
+    public ResponseEntity<ContaCorrenteResponseDTO> abrirConta(@RequestBody @Valid ContaCorrenteRequestDTO dto) {
+        ContaCorrenteResponseDTO conta = contaCorrenteService.abrirConta(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(conta);
     }
 
-    // Endpoint para atualizar uma conta corrente existente
-    @PutMapping("/{id}")
-    public ResponseEntity<ContaCorrente> updateContaCorrente(@PathVariable Long id,
-            @RequestBody ContaCorrente contaCorrenteDetails) {
-        ContaCorrente contaCorrente = contaCorrenteRepository.findById(id)
-                .orElse(null);
-
-        if (contaCorrente != null) {
-            contaCorrente.setNumeroConta(contaCorrenteDetails.getNumeroConta());
-            contaCorrente.setSaldo(contaCorrenteDetails.getSaldo());
-            contaCorrente.setLimiteChequeEspecial(contaCorrenteDetails.getLimiteChequeEspecial());
-            // Atualizar demais atributos conforme necessário
-
-            ContaCorrente contaCorrenteAtualizada = contaCorrenteRepository.save(contaCorrente);
-            return ResponseEntity.ok(contaCorrenteAtualizada);
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    @PostMapping("/{id}/depositar")
+    public ResponseEntity<ContaCorrenteResponseDTO> depositar(
+            @PathVariable Long id,
+            @RequestBody @Valid OperacaoFinanceiraRequestDTO dto) {
+        return ResponseEntity.ok(contaCorrenteService.depositar(id, dto));
     }
 
-    // Endpoint para deletar uma conta corrente
-    @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteContaCorrente(@PathVariable Long id) {
-        ContaCorrente contaCorrente = contaCorrenteRepository.findById(id)
-                .orElse(null);
+    @PostMapping("/{id}/sacar")
+    public ResponseEntity<ContaCorrenteResponseDTO> sacar(
+            @PathVariable Long id,
+            @RequestBody @Valid OperacaoFinanceiraRequestDTO dto) {
+        return ResponseEntity.ok(contaCorrenteService.sacar(id, dto));
+    }
 
-        if (contaCorrente != null) {
-            contaCorrenteRepository.delete(contaCorrente);
-            return ResponseEntity.ok("Conta corrente deletada com sucesso");
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    @PostMapping("/transferir")
+    public ResponseEntity<TransferenciaResponseDTO> transferir(
+            @RequestBody @Valid TransferenciaRequestDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(contaCorrenteService.transferir(dto));
     }
 }
