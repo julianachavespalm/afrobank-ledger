@@ -52,6 +52,16 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Versionamento de Banco de Dados (Flyway) -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
         <!-- Criptografia de Credenciais / Senhas -->
         <dependency>
             <groupId>org.springframework.security</groupId>
