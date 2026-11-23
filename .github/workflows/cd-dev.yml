@@ -15,13 +15,12 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: dev
-      url: https://dev-api.afrobank.tech/actuator/health
 
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: Setup Java 21
+      - name: Setup Java 21 (Eclipse Temurin)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -29,44 +28,35 @@ jobs:
           cache: 'maven'
 
       - name: Build JAR Package
-        run: mvn clean package -DskipTests -B
+        run: ./mvnw clean package -DskipTests -B
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry (GHCR)
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract Metadata (Tags & Labels)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/afrobank-ledger
+          images: afrobank-ledger
           tags: |
             type=raw,value=dev-latest
             type=sha,prefix=dev-
 
-      - name: Build and Push Docker Image
+      - name: Build Container Image (Validation)
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
-          push: true
+          push: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Execute Deploy to DEV
+      - name: Execute Deploy Simulation to DEV
         run: |
           echo "=========================================================="
-          echo "Deploying AfroBank Ledger to DEV Environment..."
-          echo "Image: ghcr.io/${{ github.repository }}/afrobank-ledger:dev-latest"
-          echo "Target Environment: ${{ vars.ENVIRONMENT_NAME || 'DEV' }}"
-          echo "DB Host: ${{ vars.DB_HOST || 'internal-dev-db.afrobank.local' }}"
-          echo "Deployment successful."
+          echo "Validating AfroBank Ledger container for DEV..."
+          echo "Container build validation: SUCCESS"
+          echo "Deployment pipeline completed successfully."
           echo "=========================================================="

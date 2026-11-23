@@ -30,9 +30,12 @@ jobs:
           java-version: '21'
           cache: 'maven'
 
-      - name: Compile & Run Tests with Maven
+      - name: Make Maven Wrapper Executable
+        run: chmod +x ./mvnw
+
+      - name: Compile & Run Tests with Maven Wrapper
         run: |
-          mvn clean test -B
+          ./mvnw clean test -B
         env:
           SPRING_PROFILES_ACTIVE: test
 
@@ -61,8 +64,11 @@ jobs:
           java-version: '21'
           cache: 'maven'
 
+      - name: Make Maven Wrapper Executable
+        run: chmod +x ./mvnw
+
       - name: Populate Maven Dependency Cache
-        run: mvn dependency:go-offline -B
+        run: ./mvnw dependency:go-offline -B
 
       - name: Run Trivy Vulnerability Scanner (Repo & Dependencies)
         uses: aquasecurity/trivy-action@master
