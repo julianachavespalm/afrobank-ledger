@@ -23,11 +23,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Java 25 (Eclipse Temurin)
+      - name: Setup Java 21 (Eclipse Temurin)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '25'
+          java-version: '21'
           cache: 'maven'
 
       - name: Compile & Run Tests with Maven
