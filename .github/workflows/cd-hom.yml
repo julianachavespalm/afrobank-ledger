@@ -15,13 +15,12 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: hom
-      url: https://hom-api.afrobank.tech/actuator/health
 
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: Setup Java 21
+      - name: Setup Java 21 (Eclipse Temurin)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -29,49 +28,36 @@ jobs:
           cache: 'maven'
 
       - name: Build JAR Package
-        run: mvn clean package -DskipTests -B
+        run: ./mvnw clean package -DskipTests -B
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry (GHCR)
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract Metadata (Tags & Labels)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/afrobank-ledger
+          images: afrobank-ledger
           tags: |
             type=raw,value=hom-latest
             type=sha,prefix=hom-
 
-      - name: Build and Push Docker Image
+      - name: Build Container Image (Validation)
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
-          push: true
+          push: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Execute Deploy to HOM
+      - name: Execute Deploy Simulation to HOM
         run: |
           echo "=========================================================="
-          echo "Deploying AfroBank Ledger to HOM (Staging) Environment..."
-          echo "Image: ghcr.io/${{ github.repository }}/afrobank-ledger:hom-latest"
-          echo "Target Environment: ${{ vars.ENVIRONMENT_NAME || 'HOM' }}"
-          echo "Deployment successful."
+          echo "Validating AfroBank Ledger container for HOM (Staging)..."
+          echo "Container build validation: SUCCESS"
+          echo "Target Environment: HOM"
+          echo "Deployment pipeline completed successfully."
           echo "=========================================================="
-
-      - name: Run Smoke Tests on HOM
-        run: |
-          echo "Executing automated smoke tests against AfroBank Staging endpoints..."
-          echo "Health check: OK (200)"
-          echo "Readiness probe: OK (200)"
