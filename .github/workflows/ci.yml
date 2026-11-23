@@ -54,6 +54,16 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
+      - name: Setup Java 21 (Eclipse Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Populate Maven Dependency Cache
+        run: mvn dependency:go-offline -B
+
       - name: Run Trivy Vulnerability Scanner (Repo & Dependencies)
         uses: aquasecurity/trivy-action@master
         with:
