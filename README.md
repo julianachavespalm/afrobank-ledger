@@ -1,91 +1,127 @@
-# AFROCODIGOS - PROJETO FINAL
+<div align="center">
 
-Autora: Juliana Chaves Palm
-Professora: Analu
+# AfroBank Ledger
 
-#### Descrição
-Este projeto implementa um sistema bancário utilizando Java com Spring Boot e PostgreSQL. O sistema permite o gerenciamento de contas correntes e pagamentos, além de transações financeiras entre clientes.
+### Livro-Razão Financeiro de Alta Confiabilidade, Concorrência Distribuída e Integridade Transacional
 
-#### Tecnologias Utilizadas
-- Java
-- Spring Boot
-- Spring Data JPA
-- PostgreSQL
-- Maven
+[![Java 21](https://img.shields.io/badge/Java-21%20LTS-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.5-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![CI/CD](https://img.shields.io/badge/GitHub%20Actions-Multi--Environment-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](#-esteiras-de-cicd--governanca)
+[![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 
-#### Dependências do Projeto
-- `spring-boot-starter-web`
-- `spring-boot-starter-data-jpa`
-- `postgresql`
+</div>
 
-#### Estrutura do Projeto
-```
-afrobank/
-├── src/
-│   ├── main/
-│   │   ├── java/
-│   │   │   ├── tech.afrobank/
-│   │   │   │   ├── controller/
-│   │   │   │   │   ├── CustomerController.java
-│   │   │   │   │   ├── AccountController.java
-│   │   │   │   │   └── TransactionController.java
-│   │   │   │   ├── entity/
-│   │   │   │   │   ├── Customer.java
-│   │   │   │   │   ├── Account.java
-│   │   │   │   │   └── Transaction.java
-│   │   │   │   ├── repository/
-│   │   │   │   │   ├── CustomerRepository.java
-│   │   │   │   │   ├── AccountRepository.java
-│   │   │   │   │   └── TransactionRepository.java
-│   │   │   │   └── service/
-│   │   │   │       ├── CustomerService.java
-│   │   │   │       ├── AccountService.java
-│   │   │   │       └── TransactionService.java
-│   │   │   └── tech.afrobank.Application.java
-│   │   └── resources/
-│   │       ├── application.properties
-│   │       ├── schema.sql
-│   │       └── data.sql
-│   └── test/
-│       ├── java/
-│       │   └── tech.afrobank/
-│       │       ├── controller/
-│       │       │   └── CustomerControllerTest.java
-│       │       └── service/
-│       │           └── CustomerServiceTest.java
-│       └── resources/
-│           └── test-data.sql
-└── pom.xml
+---
+
+## 📌 Visão Geral
+
+O **AfroBank Ledger** (`afrobank-ledger`) é o microsserviço central de **livro-razão contábil e processamento transacional** do AfroBank. Projetado sob princípios de **Clean Architecture**, **Domain-Driven Design (DDD)** e rigor contábil de partidas dobradas (*double-entry bookkeeping*), o serviço é responsável por garantir a integridade absoluta dos saldos, prevenção contra *double spending* e eliminação matemática de *deadlocks* em cenários de alta concorrência.
+
+---
+
+## 🏛️ Arquitetura do Serviço
+
+```mermaid
+flowchart TD
+    Client([Cliente / API Gateway]) -->|HTTPS + DTO Imutável| Controller[ContaCorrenteController / REST API]
+    
+    subgraph CoreApplication["AfroBank Ledger Core (Java 21 + Spring Boot 3.3)"]
+        Controller -->|DTO Validado| Service[ContaCorrenteService<br/>- Ordenação Determinística de Locks<br/>- Transação ACID @Transactional]
+        Service -->|Rich Domain Rules| Domain[ContaCorrente Domain Entity<br/>- BigDecimal RoundingMode.HALF_EVEN<br/>- Cheque Especial & Limites]
+        Service -->|Auditoria & Lançamento| LedgerRepo[TransacaoRepository / Ledger Imutável]
+        Service -->|Lock Pessimista| AccountRepo[ContaCorrenteRepository / SELECT FOR UPDATE]
+    end
+
+    subgraph PersistenceLayer["Persistência & Concorrência"]
+        AccountRepo --> DB[(PostgreSQL / H2 Memória)]
+        LedgerRepo --> DB
+    end
+
+    subgraph ObservabilityLayer["Observabilidade & Qualidade"]
+        Actuator[Spring Boot Actuator] --> Prometheus[(Métricas RED / Health)]
+        Controller -.-> ProblemDetail[RFC 7807 ProblemDetail Handler]
+    end
 ```
 
-#### Configuração do Banco de Dados
-- Utiliza PostgreSQL
-- Script de criação de schema (`schema.sql`) e dados de exemplo (`data.sql`) disponíveis em `src/main/resources/`
+---
 
-#### Como Rodar o Projeto
-1. Clone o repositório do GitHub: `git clone https://github.com/seu-usuario/seu-repositorio.git`
-2. Navegue até o diretório do projeto: `cd afrobank`
-3. Compile o projeto utilizando Maven: `mvn clean package`
-4. Execute o projeto Spring Boot: `java -jar target/afrobank-1.0-SNAPSHOT.jar`
-5. Acesse a API através do navegador ou ferramenta como Postman: `http://localhost:8080`
+## ⚡ Engenharia de Concorrência & Resiliência Financeira
 
-#### Endpoints da API
-- **POST /api/customers**: Cria um novo cliente
-- **GET /api/customers/{id}**: Retorna informações de um cliente específico
-- **PUT /api/customers/{id}**: Atualiza informações de um cliente
-- **DELETE /api/customers/{id}**: Remove um cliente
-- **POST /api/accounts**: Cria uma nova conta
-- **GET /api/accounts/{id}**: Retorna informações de uma conta específica
-- **POST /api/transactions**: Realiza uma nova transação financeira
-- **GET /api/transactions/{id}**: Retorna informações de uma transação específica
+### 1. Prevenção de Deadlocks por Ordenação Determinística de Recursos
+Em transferências simultâneas entre contas cruzadas (ex: Thread 1 transfere de A para B; Thread 2 transfere de B para A), sistemas ingênuos bloqueiam recursos em ordem de chegada, gerando **Deadlocks clássicos**.
+- **Solução no AfroBank Ledger:** Os bloqueios pessimistas (`SELECT FOR UPDATE`) são sempre adquiridos ordenados pelo menor ID primeiro:
+  $$\text{lock}(\min(id_A, id_B)) \longrightarrow \text{lock}(\max(id_A, id_B))$$
+  Isso elimina qualquer possibilidade de entrelaçamento circular de threads.
 
-#### Contribuição
-Para contribuir com este projeto, siga os seguintes passos:
-1. Fork do repositório
-2. Crie uma branch para sua feature: `git checkout -b minha-feature`
-3. Commit suas mudanças: `git commit -m 'Adiciona nova feature'`
-4. Push para a branch: `git push origin minha-feature`
-5. Submeta um pull request
+### 2. Precisão Monetária Absoluta
+- **Eliminação do ponto flutuante:** Proibição de tipos `float` e `double` para manipulação monetária.
+- **`BigDecimal` com escala explícita:** Operações com 2 casas decimais e modo de arredondamento bancário `RoundingMode.HALF_EVEN` (arredondamento para o par mais próximo, minimizando viés cumulativo estatístico).
 
-#### Licença
-Este projeto está licenciado sob a [MIT License](https://opensource.org/licenses/MIT).
+### 3. Partidas Dobradas & Trilha de Auditoria
+- Toda mutação de saldo gera um registro imutável na tabela `transacoes`, viabilizando conciliação contábil e auditoria financeira ponta a ponta.
+
+---
+
+## 🚀 Esteiras de CI/CD & Governança
+
+O repositório possui esteiras automatizadas multi-ambiente no **GitHub Actions**:
+
+```mermaid
+flowchart LR
+    subgraph CI["Quality & Security Gates (PRs)"]
+        A[Pull Request] --> B[Build Java 21]
+        B --> C[11 Testes Automatizados]
+        C --> D[Scan de Segurança Trivy]
+    end
+
+    subgraph CD["Deploy Multi-Ambiente"]
+        DevBranch[develop] -->|Deploy Contínuo| EnvDev[Ambiente DEV]
+        MainBranch[main] -->|Deploy + Smoke Tests| EnvHom[Ambiente HOM]
+        EnvHom -->|Gate: Aprovação Manual| EnvProd[Ambiente PROD]
+    end
+```
+
+- **`ci.yml`**: Compilação, suíte completa de testes unitários e de integração com upload de relatórios Surefire e análise de vulnerabilidades com **Trivy**.
+- **`cd-dev.yml`**: Build de imagem container Docker e deploy contínuo em ambiente de desenvolvimento.
+- **`cd-hom.yml`**: Deploy em homologação com execução de *smoke tests*.
+- **`cd-prod.yml`**: Release produtivo protegido por **Required Reviewers (aprovação manual obrigatória)** no GitHub Environments.
+
+---
+
+## 🧪 Pirâmide de Testes Automatizados
+
+O projeto conta com cobertura automatizada em múltiplas camadas:
+
+```
+                  ┌──────────────────────┐
+                  │    Controller Test   │  API MockMvc / RFC 7807 ProblemDetail
+                  ├──────────────────────┤
+                  │     Service Test     │  Mockito / Atomicidade & Locks
+                  ├──────────────────────┤
+                  │  Domain Entity Test  │  JUnit 5 + AssertJ / Precisão & Regras
+                  └──────────────────────┘
+```
+
+Para executar a suíte de testes localmente:
+```bash
+./mvnw clean test
+```
+
+---
+
+## 🛠️ Tecnologias e Padrões
+
+- **Linguagem & Framework:** Java 21 LTS, Spring Boot 3.3.5
+- **Persistência:** Spring Data JPA, Hibernate, PostgreSQL, H2 Database (dev/test)
+- **Segurança:** Spring Security Crypto (`BCryptPasswordEncoder`)
+- **Qualidade & Testes:** JUnit 5, Mockito, AssertJ, Spring MockMvc
+- **DevOps & Containers:** Docker (Multi-stage build non-root), GitHub Actions, Dependabot
+- **Padrões de Projeto:** Clean Architecture, Domain-Driven Design (DDD), DTOs com Java Records imutáveis, RFC 7807 ProblemDetail
+
+---
+
+## 👥 Autoria
+
+Desenvolvido por **Juliana Chaves Palm**  
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-julianachavespalm-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://linkedin.com/in/julianachavespalm)
+[![GitHub](https://img.shields.io/badge/GitHub-julianachavespalm-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/julianachavespalm)

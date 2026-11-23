@@ -1,8 +1,8 @@
-name: AfroBank CD - Deploy to HOM (Staging)
+name: AfroBank CD - Deploy to DEV
 
 on:
   push:
-    branches: [ main ]
+    branches: [ develop ]
   workflow_dispatch:
 
 permissions:
@@ -10,12 +10,12 @@ permissions:
   packages: write
 
 jobs:
-  deploy-hom:
-    name: Deploy to Homologation / Staging
+  deploy-dev:
+    name: Deploy to Development Environment
     runs-on: ubuntu-latest
     environment:
-      name: hom
-      url: https://hom-api.afrobank.tech/actuator/health
+      name: dev
+      url: https://dev-api.afrobank.tech/actuator/health
 
     steps:
       - name: Checkout Source Code
@@ -45,10 +45,10 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/afrobank-core
+          images: ghcr.io/${{ github.repository }}/afrobank-ledger
           tags: |
-            type=raw,value=hom-latest
-            type=sha,prefix=hom-
+            type=raw,value=dev-latest
+            type=sha,prefix=dev-
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
@@ -61,17 +61,12 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Execute Deploy to HOM
+      - name: Execute Deploy to DEV
         run: |
           echo "=========================================================="
-          echo "Deploying AfroBank Core to HOM (Staging) Environment..."
-          echo "Image: ghcr.io/${{ github.repository }}/afrobank-core:hom-latest"
-          echo "Target Environment: ${{ vars.ENVIRONMENT_NAME || 'HOM' }}"
+          echo "Deploying AfroBank Ledger to DEV Environment..."
+          echo "Image: ghcr.io/${{ github.repository }}/afrobank-ledger:dev-latest"
+          echo "Target Environment: ${{ vars.ENVIRONMENT_NAME || 'DEV' }}"
+          echo "DB Host: ${{ vars.DB_HOST || 'internal-dev-db.afrobank.local' }}"
           echo "Deployment successful."
           echo "=========================================================="
-
-      - name: Run Smoke Tests on HOM
-        run: |
-          echo "Executing automated smoke tests against AfroBank Staging endpoints..."
-          echo "Health check: OK (200)"
-          echo "Readiness probe: OK (200)"

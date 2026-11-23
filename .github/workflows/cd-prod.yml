@@ -60,7 +60,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/afrobank-core
+          images: ghcr.io/${{ github.repository }}/afrobank-ledger
           tags: |
             type=raw,value=${{ steps.tag_step.outputs.TAG }}
             type=raw,value=latest
@@ -79,9 +79,9 @@ jobs:
       - name: Execute Controlled Production Rollout
         run: |
           echo "=========================================================="
-          echo "EXECUTING AFROBANK PRODUCTION RELEASE"
+          echo "EXECUTING AFROBANK LEDGER PRODUCTION RELEASE"
           echo "Version: ${{ steps.tag_step.outputs.TAG }}"
-          echo "Image: ghcr.io/${{ github.repository }}/afrobank-core:${{ steps.tag_step.outputs.TAG }}"
+          echo "Image: ghcr.io/${{ github.repository }}/afrobank-ledger:${{ steps.tag_step.outputs.TAG }}"
           echo "Target Cluster: AfroBank Production K8s / Cloud Run"
           echo "Zero-downtime rolling update initiated..."
           echo "Release status: COMPLETED"
