@@ -24,6 +24,15 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(IdempotencyException.class)
+    public ProblemDetail handleIdempotency(IdempotencyException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        problem.setTitle("Conflito de Idempotência");
+        problem.setType(URI.create("https://afrobank.tech/errors/idempotencia-conflito"));
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
     @ExceptionHandler(RecursoNaoEncontradoException.class)
     public ProblemDetail handleRecursoNaoEncontrado(RecursoNaoEncontradoException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());

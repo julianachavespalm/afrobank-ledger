@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import tech.afrobank.dto.*;
+import tech.afrobank.idempotency.IdempotencyManager;
 import tech.afrobank.service.ContaCorrenteService;
 
 import java.util.List;
@@ -16,6 +17,7 @@ import java.util.List;
 public class ContaCorrenteController {
 
     private final ContaCorrenteService contaCorrenteService;
+    private final IdempotencyManager idempotencyManager;
 
     @GetMapping
     public ResponseEntity<List<ContaCorrenteResponseDTO>> listarTodas() {
@@ -49,7 +51,19 @@ public class ContaCorrenteController {
 
     @PostMapping("/transferir")
     public ResponseEntity<TransferenciaResponseDTO> transferir(
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey,
             @RequestBody @Valid TransferenciaRequestDTO dto) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(contaCorrenteService.transferir(dto));
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            idempotencyManager.acquire(idempotencyKey);
+        }
+
+        TransferenciaResponseDTO response = contaCorrenteService.transferir(dto);
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            idempotencyManager.complete(idempotencyKey, response.transacaoId().toString());
+        }
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

@@ -60,6 +60,14 @@ Em transferências simultâneas entre contas cruzadas (ex: Thread 1 transfere de
 ### 3. Partidas Dobradas e Rastreabilidade
 - Toda mutação de saldo gera um registro correspondente na tabela `transacoes`, permitindo conciliação contábil e auditoria financeira.
 
+### 4. Idempotência em Mutações Financeiras
+- **Prevenção de duplicidade:** Suporte ao cabeçalho `X-Idempotency-Key` (UUIDv4) no endpoint de transferência.
+- **Ciclo atômico:** A requisição registra a chave com status `PROCESSING` antes da transação e avança para `COMPLETED` após a conclusão. Requisições concorrentes ou repetidas com a mesma chave são interceptadas retornando HTTP 409 Conflict.
+
+### 5. Transactional Outbox Pattern e Integração com Apache Kafka
+- **Atomicidade banco-mensageria:** Para evitar falhas parciais de rede, o evento `TransferenciaRealizadaEvent` é persistido na tabela `outbox_events` na mesma transação SQL que atualiza os saldos.
+- **Despacho assíncrono:** O `OutboxRelayService` lê os eventos pendentes e os despacha para o tópico `afrobank.transacoes.v1`. Em caso de falhas consecutivas, a mensagem é encaminhada para o tópico de contingência `afrobank.transacoes.dlq`.
+
 ---
 
 ## Esteiras de CI/CD e Governança
@@ -70,7 +78,7 @@ O repositório possui esteiras automatizadas multi-ambiente no **GitHub Actions*
 flowchart LR
     subgraph CI["Quality & Security Gates (PRs)"]
         A[Pull Request] --> B[Build Java 21]
-        B --> C[11 Testes Automatizados]
+        B --> C[17 Testes Automatizados]
         C --> D[Scan de Segurança Trivy]
     end
 

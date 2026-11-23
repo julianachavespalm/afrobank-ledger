@@ -1,6 +1,9 @@
 package tech.afrobank.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -8,8 +11,11 @@ import tech.afrobank.dto.*;
 import tech.afrobank.entity.Cliente;
 import tech.afrobank.entity.ContaCorrente;
 import tech.afrobank.entity.Transacao;
+import tech.afrobank.event.TransferenciaRealizadaEvent;
 import tech.afrobank.exception.NegocioException;
 import tech.afrobank.exception.RecursoNaoEncontradoException;
+import tech.afrobank.outbox.OutboxEvent;
+import tech.afrobank.outbox.OutboxEventRepository;
 import tech.afrobank.repository.ContaCorrenteRepository;
 import tech.afrobank.repository.TransacaoRepository;
 
@@ -18,6 +24,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ContaCorrenteService {
@@ -25,6 +32,8 @@ public class ContaCorrenteService {
     private final ContaCorrenteRepository contaCorrenteRepository;
     private final ClienteService clienteService;
     private final TransacaoRepository transacaoRepository;
+    private final OutboxEventRepository outboxEventRepository;
+    private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public List<ContaCorrenteResponseDTO> listarTodas() {
@@ -133,6 +142,9 @@ public class ContaCorrenteService {
                 .status("CONCLUIDA")
                 .build());
 
+        // Transactional Outbox Pattern: Registro atômico do evento na mesma transação
+        registrarOutboxEvent(transacao, contaOrigem.getId(), contaDestino.getId());
+
         return new TransferenciaResponseDTO(
                 transacao.getId(),
                 contaOrigem.getId(),
@@ -141,6 +153,32 @@ public class ContaCorrenteService {
                 transacao.getStatus(),
                 transacao.getCriadoEm()
         );
+    }
+
+    private void registrarOutboxEvent(Transacao transacao, Long contaOrigemId, Long contaDestinoId) {
+        try {
+            TransferenciaRealizadaEvent event = new TransferenciaRealizadaEvent(
+                    transacao.getId(),
+                    contaOrigemId,
+                    contaDestinoId,
+                    transacao.getValor(),
+                    transacao.getStatus(),
+                    transacao.getCriadoEm()
+            );
+
+            String payloadJson = objectMapper.writeValueAsString(event);
+
+            outboxEventRepository.save(OutboxEvent.builder()
+                    .aggregateType("CONTA_CORRENTE")
+                    .aggregateId(contaOrigemId.toString())
+                    .eventType("TRANSFERENCIA_REALIZADA")
+                    .payload(payloadJson)
+                    .status("PENDENTE")
+                    .build());
+        } catch (JsonProcessingException e) {
+            log.error("Falha na serialização do evento de outbox para a transação ID: {}", transacao.getId(), e);
+            throw new NegocioException("Falha interna ao gerar evento transacional.");
+        }
     }
 
     @Transactional(readOnly = true)

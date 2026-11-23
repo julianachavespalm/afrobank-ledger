@@ -12,20 +12,23 @@ import org.springframework.test.web.servlet.MockMvc;
 import tech.afrobank.config.SecurityConfig;
 import tech.afrobank.dto.TransferenciaRequestDTO;
 import tech.afrobank.dto.TransferenciaResponseDTO;
+import tech.afrobank.exception.IdempotencyException;
 import tech.afrobank.exception.SaldoInsuficienteException;
+import tech.afrobank.idempotency.IdempotencyManager;
 import tech.afrobank.service.ContaCorrenteService;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ContaCorrenteController.class)
 @Import(SecurityConfig.class)
-@DisplayName("Testes de Integração de API - ContaCorrenteController")
+@DisplayName("Testes de Integracao de API - ContaCorrenteController")
 class ContaCorrenteControllerTest {
 
     @Autowired
@@ -37,8 +40,11 @@ class ContaCorrenteControllerTest {
     @MockBean
     private ContaCorrenteService contaCorrenteService;
 
+    @MockBean
+    private IdempotencyManager idempotencyManager;
+
     @Test
-    @DisplayName("POST /api/v1/contas-corrente/transferir - Deve retornar 201 Created quando payload for válido")
+    @DisplayName("POST /api/v1/contas-corrente/transferir - Deve retornar 201 Created quando payload for valido")
     void deveRetornar201AoTransferirComSucesso() throws Exception {
         TransferenciaRequestDTO request = new TransferenciaRequestDTO(1L, 2L, new BigDecimal("150.00"));
         TransferenciaResponseDTO response = new TransferenciaResponseDTO(
@@ -82,5 +88,22 @@ class ContaCorrenteControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.title").value("Saldo Insuficiente"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/contas-corrente/transferir - Deve retornar 409 Conflict quando idempotency key duplicada")
+    void deveRetornar409QuandoIdempotencyKeyDuplicada() throws Exception {
+        TransferenciaRequestDTO request = new TransferenciaRequestDTO(1L, 2L, new BigDecimal("100.00"));
+        String idempotencyKey = "uuid-chave-duplicada";
+
+        doThrow(new IdempotencyException("Operacao ja processada"))
+                .when(idempotencyManager).acquire(idempotencyKey);
+
+        mockMvc.perform(post("/api/v1/contas-corrente/transferir")
+                        .header("X-Idempotency-Key", idempotencyKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Conflito de Idempotência"));
     }
 }

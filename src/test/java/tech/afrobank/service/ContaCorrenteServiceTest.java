@@ -1,5 +1,6 @@
 package tech.afrobank.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,8 @@ import tech.afrobank.entity.ContaCorrente;
 import tech.afrobank.entity.Transacao;
 import tech.afrobank.exception.NegocioException;
 import tech.afrobank.exception.SaldoInsuficienteException;
+import tech.afrobank.outbox.OutboxEvent;
+import tech.afrobank.outbox.OutboxEventRepository;
 import tech.afrobank.repository.ContaCorrenteRepository;
 import tech.afrobank.repository.TransacaoRepository;
 
@@ -37,6 +40,12 @@ class ContaCorrenteServiceTest {
 
     @Mock
     private TransacaoRepository transacaoRepository;
+
+    @Mock
+    private OutboxEventRepository outboxEventRepository;
+
+    @Mock
+    private ObjectMapper objectMapper;
 
     @InjectMocks
     private ContaCorrenteService contaCorrenteService;
@@ -91,6 +100,7 @@ class ContaCorrenteServiceTest {
         verify(contaCorrenteRepository).save(contaOrigem);
         verify(contaCorrenteRepository).save(contaDestino);
         verify(transacaoRepository).save(any(Transacao.class));
+        verify(outboxEventRepository).save(any(OutboxEvent.class));
     }
 
     @Test
