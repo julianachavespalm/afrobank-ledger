@@ -91,16 +91,7 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: Setup Java 21 (Eclipse Temurin)
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-          cache: 'maven'
-
-      - name: Build JAR Package
-        run: ./mvnw clean package -DskipTests -B
-
+      # O Dockerfile é multi-stage e compila a aplicação internamente
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
